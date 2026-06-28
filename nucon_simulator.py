@@ -676,10 +676,7 @@ class NUCONSimulator:
             for slot_num in range(14):
                 slot = node.slots[slot_num]
                 slot_text = f"Slot{slot_num + 1}-{slot.module_type}"
-                slot_item = self.tree.insert(node_item, 'end', text=slot_text)
-
-                # Store metadata for easy access
-                self.tree.set(slot_item, '#0', slot_text)
+                self.tree.insert(node_item, 'end', text=slot_text)
 
     def on_tree_right_click(self, event):
         """Handle right-click on tree"""
