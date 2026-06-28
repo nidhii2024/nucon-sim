@@ -42,13 +42,13 @@ class ChannelConfig:
 @dataclass
 class DIModuleConfig:
     """DI Module configuration"""
-    fail_safe_enabled: bool = False
+    fail_safe_config: str = "N-1"
     fail_safe_value: int = 0
     channels: List[ChannelConfig] = field(default_factory=lambda: [ChannelConfig() for _ in range(32)])
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'fail_safe_enabled': self.fail_safe_enabled,
+            'fail_safe_config': self.fail_safe_config,
             'fail_safe_value': self.fail_safe_value,
             'channels': [ch.to_dict() for ch in self.channels]
         }
@@ -57,7 +57,7 @@ class DIModuleConfig:
     def from_dict(cls, data: Dict[str, Any]) -> 'DIModuleConfig':
         channels = [ChannelConfig.from_dict(ch) for ch in data.get('channels', [ChannelConfig() for _ in range(32)])]
         return cls(
-            fail_safe_enabled=data.get('fail_safe_enabled', False),
+            fail_safe_config=data.get('fail_safe_config', 'N-1'),
             fail_safe_value=data.get('fail_safe_value', 0),
             channels=channels
         )
@@ -66,14 +66,14 @@ class DIModuleConfig:
 @dataclass
 class DOModuleConfig:
     """DO Module configuration"""
-    fail_safe_enabled: bool = False
+    fail_safe_config: str = "N-1"
     fail_safe_value: int = 0
     wdt_timeout: int = 1000
     channels: List[ChannelConfig] = field(default_factory=lambda: [ChannelConfig() for _ in range(32)])
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'fail_safe_enabled': self.fail_safe_enabled,
+            'fail_safe_config': self.fail_safe_config,
             'fail_safe_value': self.fail_safe_value,
             'wdt_timeout': self.wdt_timeout,
             'channels': [ch.to_dict() for ch in self.channels]
@@ -83,7 +83,7 @@ class DOModuleConfig:
     def from_dict(cls, data: Dict[str, Any]) -> 'DOModuleConfig':
         channels = [ChannelConfig.from_dict(ch) for ch in data.get('channels', [ChannelConfig() for _ in range(32)])]
         return cls(
-            fail_safe_enabled=data.get('fail_safe_enabled', False),
+            fail_safe_config=data.get('fail_safe_config', 'N-1'),
             fail_safe_value=data.get('fail_safe_value', 0),
             wdt_timeout=data.get('wdt_timeout', 1000),
             channels=channels
@@ -196,48 +196,13 @@ class SimulatorData:
 # CONFIGURATION WINDOWS
 # ============================================================================
 
-class ChannelFrame(ttk.Frame):
-    """Frame for editing a single channel configuration"""
-
-    def __init__(self, parent, channel_num: int, config: ChannelConfig, **kwargs):
-        super().__init__(parent, **kwargs)
-        self.channel_num = channel_num
-        self.config = config
-
-        # Channel label
-        label = ttk.Label(self, text=f"Channel {channel_num}")
-        label.grid(row=0, column=0, sticky='w', padx=5, pady=5)
-
-        # Process Low
-        ttk.Label(self, text="Process Low:").grid(row=1, column=0, sticky='w', padx=5, pady=2)
-        self.low_entry = ttk.Entry(self, width=10)
-        self.low_entry.insert(0, str(config.process_low))
-        self.low_entry.grid(row=1, column=1, sticky='w', padx=5, pady=2)
-
-        # Process High
-        ttk.Label(self, text="Process High:").grid(row=2, column=0, sticky='w', padx=5, pady=2)
-        self.high_entry = ttk.Entry(self, width=10)
-        self.high_entry.insert(0, str(config.process_high))
-        self.high_entry.grid(row=2, column=1, sticky='w', padx=5, pady=2)
-
-    def get_config(self) -> ChannelConfig:
-        """Retrieve updated configuration"""
-        try:
-            return ChannelConfig(
-                process_low=float(self.low_entry.get()),
-                process_high=float(self.high_entry.get())
-            )
-        except ValueError:
-            return self.config
-
-
 class DIConfigWindow(tk.Toplevel):
     """Configuration window for DI modules"""
 
     def __init__(self, parent, slot_name: str, config: DIModuleConfig):
         super().__init__(parent)
         self.title(f"DI Configuration - {slot_name}")
-        self.geometry("600x700")
+        self.geometry("700x750")
         self.config_data = copy.deepcopy(config)
         self.result = None
 
@@ -247,20 +212,36 @@ class DIConfigWindow(tk.Toplevel):
 
         # Main settings tab
         main_frame = ttk.Frame(notebook)
-        notebook.add(main_frame, text="Settings")
+        notebook.add(main_frame, text="Module Parameters")
 
-        ttk.Label(main_frame, text="Fail Safe Configuration:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.fail_safe_var = tk.BooleanVar(value=self.config_data.fail_safe_enabled)
-        ttk.Checkbutton(main_frame, variable=self.fail_safe_var).grid(row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Channel parameters", font=('Arial', 10, 'bold')).grid(
+            row=0, column=0, columnspan=2, sticky='w', padx=5, pady=10)
 
-        ttk.Label(main_frame, text="Fail Safe Value:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.fail_safe_value_entry = ttk.Entry(main_frame, width=15)
-        self.fail_safe_value_entry.insert(0, str(self.config_data.fail_safe_value))
-        self.fail_safe_value_entry.grid(row=1, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Fail safe configuration:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.fail_safe_config_var = tk.StringVar(value=self.config_data.fail_safe_config)
+        fail_safe_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.fail_safe_config_var,
+            values=["N-1", "2 Configurable"],
+            state="readonly",
+            width=20
+        )
+        fail_safe_combo.grid(row=1, column=1, sticky='w', padx=5, pady=5)
+
+        ttk.Label(main_frame, text="Fail safe value:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.fail_safe_value_var = tk.StringVar(value=str(self.config_data.fail_safe_value))
+        fail_safe_value_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.fail_safe_value_var,
+            values=["0", "1"],
+            state="readonly",
+            width=20
+        )
+        fail_safe_value_combo.grid(row=2, column=1, sticky='w', padx=5, pady=5)
 
         # Channels tab with scrollbar
         channels_frame = ttk.Frame(notebook)
-        notebook.add(channels_frame, text="Channels")
+        notebook.add(channels_frame, text="Channel Parameters")
 
         canvas = tk.Canvas(channels_frame)
         scrollbar = ttk.Scrollbar(channels_frame, orient="vertical", command=canvas.yview)
@@ -274,11 +255,27 @@ class DIConfigWindow(tk.Toplevel):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        self.channel_frames = []
+        # Header row
+        ttk.Label(scrollable_frame, text="Channel", font=('Arial', 9, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process Low", font=('Arial', 9, 'bold')).grid(
+            row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process High", font=('Arial', 9, 'bold')).grid(
+            row=0, column=2, sticky='w', padx=5, pady=5)
+
+        self.channel_entries = []
         for i in range(32):
-            cf = ChannelFrame(scrollable_frame, i, self.config_data.channels[i])
-            cf.pack(fill='x', padx=5, pady=2)
-            self.channel_frames.append(cf)
+            ttk.Label(scrollable_frame, text=str(i)).grid(row=i+1, column=0, sticky='w', padx=5, pady=2)
+            
+            low_entry = ttk.Entry(scrollable_frame, width=12)
+            low_entry.insert(0, str(self.config_data.channels[i].process_low))
+            low_entry.grid(row=i+1, column=1, sticky='w', padx=5, pady=2)
+            
+            high_entry = ttk.Entry(scrollable_frame, width=12)
+            high_entry.insert(0, str(self.config_data.channels[i].process_high))
+            high_entry.grid(row=i+1, column=2, sticky='w', padx=5, pady=2)
+            
+            self.channel_entries.append((low_entry, high_entry))
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -293,9 +290,15 @@ class DIConfigWindow(tk.Toplevel):
     def save_config(self):
         """Save the configuration"""
         try:
-            self.config_data.fail_safe_enabled = self.fail_safe_var.get()
-            self.config_data.fail_safe_value = int(self.fail_safe_value_entry.get())
-            self.config_data.channels = [cf.get_config() for cf in self.channel_frames]
+            self.config_data.fail_safe_config = self.fail_safe_config_var.get()
+            self.config_data.fail_safe_value = int(self.fail_safe_value_var.get())
+            
+            for i, (low_entry, high_entry) in enumerate(self.channel_entries):
+                self.config_data.channels[i] = ChannelConfig(
+                    process_low=float(low_entry.get()),
+                    process_high=float(high_entry.get())
+                )
+            
             self.result = self.config_data
             self.destroy()
         except ValueError:
@@ -312,7 +315,7 @@ class DOConfigWindow(tk.Toplevel):
     def __init__(self, parent, slot_name: str, config: DOModuleConfig):
         super().__init__(parent)
         self.title(f"DO Configuration - {slot_name}")
-        self.geometry("600x750")
+        self.geometry("700x800")
         self.config_data = copy.deepcopy(config)
         self.result = None
 
@@ -322,25 +325,41 @@ class DOConfigWindow(tk.Toplevel):
 
         # Main settings tab
         main_frame = ttk.Frame(notebook)
-        notebook.add(main_frame, text="Settings")
+        notebook.add(main_frame, text="Module Parameters")
 
-        ttk.Label(main_frame, text="Fail Safe Configuration:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.fail_safe_var = tk.BooleanVar(value=self.config_data.fail_safe_enabled)
-        ttk.Checkbutton(main_frame, variable=self.fail_safe_var).grid(row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Channel parameters", font=('Arial', 10, 'bold')).grid(
+            row=0, column=0, columnspan=2, sticky='w', padx=5, pady=10)
 
-        ttk.Label(main_frame, text="Fail Safe Value:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.fail_safe_value_entry = ttk.Entry(main_frame, width=15)
-        self.fail_safe_value_entry.insert(0, str(self.config_data.fail_safe_value))
-        self.fail_safe_value_entry.grid(row=1, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Fail safe configuration:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.fail_safe_config_var = tk.StringVar(value=self.config_data.fail_safe_config)
+        fail_safe_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.fail_safe_config_var,
+            values=["N-1", "2 Configurable"],
+            state="readonly",
+            width=20
+        )
+        fail_safe_combo.grid(row=1, column=1, sticky='w', padx=5, pady=5)
 
-        ttk.Label(main_frame, text="WDT Timeout (ms):").grid(row=2, column=0, sticky='w', padx=5, pady=5)
-        self.wdt_timeout_entry = ttk.Entry(main_frame, width=15)
+        ttk.Label(main_frame, text="Fail safe value:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.fail_safe_value_var = tk.StringVar(value=str(self.config_data.fail_safe_value))
+        fail_safe_value_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.fail_safe_value_var,
+            values=["0", "1"],
+            state="readonly",
+            width=20
+        )
+        fail_safe_value_combo.grid(row=2, column=1, sticky='w', padx=5, pady=5)
+
+        ttk.Label(main_frame, text="WDT Timeout (ms):").grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        self.wdt_timeout_entry = ttk.Entry(main_frame, width=20)
         self.wdt_timeout_entry.insert(0, str(self.config_data.wdt_timeout))
-        self.wdt_timeout_entry.grid(row=2, column=1, sticky='w', padx=5, pady=5)
+        self.wdt_timeout_entry.grid(row=3, column=1, sticky='w', padx=5, pady=5)
 
         # Channels tab with scrollbar
         channels_frame = ttk.Frame(notebook)
-        notebook.add(channels_frame, text="Channels")
+        notebook.add(channels_frame, text="Channel Parameters")
 
         canvas = tk.Canvas(channels_frame)
         scrollbar = ttk.Scrollbar(channels_frame, orient="vertical", command=canvas.yview)
@@ -354,11 +373,27 @@ class DOConfigWindow(tk.Toplevel):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        self.channel_frames = []
+        # Header row
+        ttk.Label(scrollable_frame, text="Channel", font=('Arial', 9, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process Low", font=('Arial', 9, 'bold')).grid(
+            row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process High", font=('Arial', 9, 'bold')).grid(
+            row=0, column=2, sticky='w', padx=5, pady=5)
+
+        self.channel_entries = []
         for i in range(32):
-            cf = ChannelFrame(scrollable_frame, i, self.config_data.channels[i])
-            cf.pack(fill='x', padx=5, pady=2)
-            self.channel_frames.append(cf)
+            ttk.Label(scrollable_frame, text=str(i)).grid(row=i+1, column=0, sticky='w', padx=5, pady=2)
+            
+            low_entry = ttk.Entry(scrollable_frame, width=12)
+            low_entry.insert(0, str(self.config_data.channels[i].process_low))
+            low_entry.grid(row=i+1, column=1, sticky='w', padx=5, pady=2)
+            
+            high_entry = ttk.Entry(scrollable_frame, width=12)
+            high_entry.insert(0, str(self.config_data.channels[i].process_high))
+            high_entry.grid(row=i+1, column=2, sticky='w', padx=5, pady=2)
+            
+            self.channel_entries.append((low_entry, high_entry))
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -373,10 +408,16 @@ class DOConfigWindow(tk.Toplevel):
     def save_config(self):
         """Save the configuration"""
         try:
-            self.config_data.fail_safe_enabled = self.fail_safe_var.get()
-            self.config_data.fail_safe_value = int(self.fail_safe_value_entry.get())
+            self.config_data.fail_safe_config = self.fail_safe_config_var.get()
+            self.config_data.fail_safe_value = int(self.fail_safe_value_var.get())
             self.config_data.wdt_timeout = int(self.wdt_timeout_entry.get())
-            self.config_data.channels = [cf.get_config() for cf in self.channel_frames]
+            
+            for i, (low_entry, high_entry) in enumerate(self.channel_entries):
+                self.config_data.channels[i] = ChannelConfig(
+                    process_low=float(low_entry.get()),
+                    process_high=float(high_entry.get())
+                )
+            
             self.result = self.config_data
             self.destroy()
         except ValueError:
@@ -393,7 +434,7 @@ class AIConfigWindow(tk.Toplevel):
     def __init__(self, parent, slot_name: str, config: AIModuleConfig):
         super().__init__(parent)
         self.title(f"AI Configuration - {slot_name}")
-        self.geometry("600x700")
+        self.geometry("700x750")
         self.config_data = copy.deepcopy(config)
         self.result = None
 
@@ -403,21 +444,26 @@ class AIConfigWindow(tk.Toplevel):
 
         # Main settings tab
         main_frame = ttk.Frame(notebook)
-        notebook.add(main_frame, text="Settings")
+        notebook.add(main_frame, text="Module Parameters")
 
-        ttk.Label(main_frame, text="Voltage Range:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Voltage range:", font=('Arial', 10, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=10)
         self.voltage_var = tk.StringVar(value=self.config_data.voltage_range)
         voltage_combo = ttk.Combobox(
             main_frame,
             textvariable=self.voltage_var,
-            values=["0-10V", "0-5V", "4-20mA", "-10-10V"],
-            state="readonly"
+            values=["0 to 5V", "0 to 10V", "-5 to 5V", "-10 to 10V"],
+            state="readonly",
+            width=25
         )
-        voltage_combo.grid(row=0, column=1, sticky='w', padx=5, pady=5)
+        voltage_combo.grid(row=0, column=1, sticky='w', padx=5, pady=10)
+
+        ttk.Label(main_frame, text="Channel parameters", font=('Arial', 10, 'bold')).grid(
+            row=1, column=0, columnspan=2, sticky='w', padx=5, pady=5)
 
         # Channels tab with scrollbar
         channels_frame = ttk.Frame(notebook)
-        notebook.add(channels_frame, text="Channels")
+        notebook.add(channels_frame, text="Channel Parameters")
 
         canvas = tk.Canvas(channels_frame)
         scrollbar = ttk.Scrollbar(channels_frame, orient="vertical", command=canvas.yview)
@@ -431,11 +477,27 @@ class AIConfigWindow(tk.Toplevel):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        self.channel_frames = []
+        # Header row
+        ttk.Label(scrollable_frame, text="Channel", font=('Arial', 9, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process Low", font=('Arial', 9, 'bold')).grid(
+            row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process High", font=('Arial', 9, 'bold')).grid(
+            row=0, column=2, sticky='w', padx=5, pady=5)
+
+        self.channel_entries = []
         for i in range(32):
-            cf = ChannelFrame(scrollable_frame, i, self.config_data.channels[i])
-            cf.pack(fill='x', padx=5, pady=2)
-            self.channel_frames.append(cf)
+            ttk.Label(scrollable_frame, text=str(i)).grid(row=i+1, column=0, sticky='w', padx=5, pady=2)
+            
+            low_entry = ttk.Entry(scrollable_frame, width=12)
+            low_entry.insert(0, str(self.config_data.channels[i].process_low))
+            low_entry.grid(row=i+1, column=1, sticky='w', padx=5, pady=2)
+            
+            high_entry = ttk.Entry(scrollable_frame, width=12)
+            high_entry.insert(0, str(self.config_data.channels[i].process_high))
+            high_entry.grid(row=i+1, column=2, sticky='w', padx=5, pady=2)
+            
+            self.channel_entries.append((low_entry, high_entry))
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -451,7 +513,13 @@ class AIConfigWindow(tk.Toplevel):
         """Save the configuration"""
         try:
             self.config_data.voltage_range = self.voltage_var.get()
-            self.config_data.channels = [cf.get_config() for cf in self.channel_frames]
+            
+            for i, (low_entry, high_entry) in enumerate(self.channel_entries):
+                self.config_data.channels[i] = ChannelConfig(
+                    process_low=float(low_entry.get()),
+                    process_high=float(high_entry.get())
+                )
+            
             self.result = self.config_data
             self.destroy()
         except ValueError:
@@ -468,7 +536,7 @@ class AOConfigWindow(tk.Toplevel):
     def __init__(self, parent, slot_name: str, config: AOModuleConfig):
         super().__init__(parent)
         self.title(f"AO Configuration - {slot_name}")
-        self.geometry("600x700")
+        self.geometry("700x750")
         self.config_data = copy.deepcopy(config)
         self.result = None
 
@@ -478,21 +546,26 @@ class AOConfigWindow(tk.Toplevel):
 
         # Main settings tab
         main_frame = ttk.Frame(notebook)
-        notebook.add(main_frame, text="Settings")
+        notebook.add(main_frame, text="Module Parameters")
 
-        ttk.Label(main_frame, text="Current Range:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(main_frame, text="Current range:", font=('Arial', 10, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=10)
         self.current_var = tk.StringVar(value=self.config_data.current_range)
         current_combo = ttk.Combobox(
             main_frame,
             textvariable=self.current_var,
-            values=["0-20mA", "0-10mA", "0-10V", "4-20mA"],
-            state="readonly"
+            values=["0 to 20mA", "0 to 40mA", "-20mA to 20mA", "-40mA to 40mA"],
+            state="readonly",
+            width=25
         )
-        current_combo.grid(row=0, column=1, sticky='w', padx=5, pady=5)
+        current_combo.grid(row=0, column=1, sticky='w', padx=5, pady=10)
+
+        ttk.Label(main_frame, text="Channel parameters", font=('Arial', 10, 'bold')).grid(
+            row=1, column=0, columnspan=2, sticky='w', padx=5, pady=5)
 
         # Channels tab with scrollbar
         channels_frame = ttk.Frame(notebook)
-        notebook.add(channels_frame, text="Channels")
+        notebook.add(channels_frame, text="Channel Parameters")
 
         canvas = tk.Canvas(channels_frame)
         scrollbar = ttk.Scrollbar(channels_frame, orient="vertical", command=canvas.yview)
@@ -506,11 +579,27 @@ class AOConfigWindow(tk.Toplevel):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        self.channel_frames = []
+        # Header row
+        ttk.Label(scrollable_frame, text="Channel", font=('Arial', 9, 'bold')).grid(
+            row=0, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process Low", font=('Arial', 9, 'bold')).grid(
+            row=0, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(scrollable_frame, text="Process High", font=('Arial', 9, 'bold')).grid(
+            row=0, column=2, sticky='w', padx=5, pady=5)
+
+        self.channel_entries = []
         for i in range(32):
-            cf = ChannelFrame(scrollable_frame, i, self.config_data.channels[i])
-            cf.pack(fill='x', padx=5, pady=2)
-            self.channel_frames.append(cf)
+            ttk.Label(scrollable_frame, text=str(i)).grid(row=i+1, column=0, sticky='w', padx=5, pady=2)
+            
+            low_entry = ttk.Entry(scrollable_frame, width=12)
+            low_entry.insert(0, str(self.config_data.channels[i].process_low))
+            low_entry.grid(row=i+1, column=1, sticky='w', padx=5, pady=2)
+            
+            high_entry = ttk.Entry(scrollable_frame, width=12)
+            high_entry.insert(0, str(self.config_data.channels[i].process_high))
+            high_entry.grid(row=i+1, column=2, sticky='w', padx=5, pady=2)
+            
+            self.channel_entries.append((low_entry, high_entry))
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -526,7 +615,13 @@ class AOConfigWindow(tk.Toplevel):
         """Save the configuration"""
         try:
             self.config_data.current_range = self.current_var.get()
-            self.config_data.channels = [cf.get_config() for cf in self.channel_frames]
+            
+            for i, (low_entry, high_entry) in enumerate(self.channel_entries):
+                self.config_data.channels[i] = ChannelConfig(
+                    process_low=float(low_entry.get()),
+                    process_high=float(high_entry.get())
+                )
+            
             self.result = self.config_data
             self.destroy()
         except ValueError:
