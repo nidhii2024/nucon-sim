@@ -670,14 +670,15 @@ class NUCONSimulator:
         # Add nodes
         for node_id in sorted(self.data.nodes.keys()):
             node = self.data.nodes[node_id]
-            node_item = self.tree.insert(self.root_item, 'end', text=f'Node{node_id}', open=False)
+            node_item = self.tree.insert(self.root_item, 'end', text=f'Node{node_id}', open=True)
 
-            # Add slots
-            for slot_num, slot in enumerate(node.slots):
+            # Add all 14 slots
+            for slot_num in range(14):
+                slot = node.slots[slot_num]
                 slot_text = f"Slot{slot_num + 1}-{slot.module_type}"
                 slot_item = self.tree.insert(node_item, 'end', text=slot_text)
 
-                # Store metadata
+                # Store metadata for easy access
                 self.tree.set(slot_item, '#0', slot_text)
 
     def on_tree_right_click(self, event):
