@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 NUCON Simulator - Professional Tkinter Application
 A complete IO module simulator with configuration management.
